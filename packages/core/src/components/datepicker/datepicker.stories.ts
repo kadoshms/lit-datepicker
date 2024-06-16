@@ -1,10 +1,10 @@
 import { html } from "lit";
-import "./calendar.component.js";
+import "./datepicker.component.js";
 
 export default {
-  title: "Calendar",
+  title: "Datepicker",
   tags: ["autodocs"],
-  render: () => html`<lit-calendar></lit-calendar>`,
+  render: () => html`<lit-datepicker></lit-datepicker>`,
   argTypes: {},
 };
 
