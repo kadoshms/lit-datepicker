@@ -1,4 +1,4 @@
-import { customElement, state } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import { html, LitElement } from "lit";
 import { map } from "lit/directives/map.js";
 import { range } from "lit/directives/range.js";
@@ -10,10 +10,21 @@ import {
   startOfMonth,
   add,
   sub,
+  isEqual,
+  startOfDay,
 } from "date-fns";
+import { repeat } from "lit/directives/repeat.js";
+import { styleMap } from "lit/directives/style-map.js";
+import { spreadProps } from "@open-wc/lit-helpers";
 
 @customElement("lit-calendar")
 export class LitCalendar extends LitElement {
+  @property({ attribute: false })
+  selectedDate: Date = new Date();
+
+  @property({ attribute: false })
+  onDateChange: Function;
+
   @state()
   currentMonth: Date = new Date();
 
@@ -25,32 +36,84 @@ export class LitCalendar extends LitElement {
     this.currentMonth = sub(this.currentMonth, { months: 1 });
   }
 
-  render() {
-    const daysInMonth = getDaysInMonth(this.currentMonth);
+  // TODO: utils
+  getNumberOfFirstDayInMonth() {
+    return parseInt(formatDate(startOfMonth(this.currentMonth), "i"), 10);
+  }
 
+  getDayRowsToRender() {
+    const remainingRows: number[][] = [[]];
+    const daysInMonth = getDaysInMonth(this.currentMonth);
+    const dayNumOfFirstDayInMonth = this.getNumberOfFirstDayInMonth();
+    let currentRow = 0;
+    const firstRowDaysNum = 7 - dayNumOfFirstDayInMonth;
+
+    let columnCounter = 0;
+    for (let day = firstRowDaysNum; day < daysInMonth; day++) {
+      if (columnCounter % 7 === 0) {
+        currentRow++;
+        remainingRows[currentRow] = [];
+      }
+      remainingRows[currentRow].push(day);
+      columnCounter++;
+    }
+
+    return remainingRows;
+  }
+
+  handleSelectDate(date: Date) {
+    if (this.onDateChange) {
+      this.onDateChange(date);
+    }
+  }
+
+  renderDay(day: number) {
+    const dayDateValue = startOfDay(
+      addDays(startOfMonth(this.currentMonth), day - 1),
+    );
+    const isSelected = isEqual(dayDateValue, startOfDay(this.selectedDate));
+
+    const buttonAttributes: Record<string, string> = {};
+
+    if (isSelected) {
+      buttonAttributes.ariaCurrent = "date";
+    }
+
+    return html`<td
+      style="${styleMap({
+        border: isEqual(dayDateValue, startOfDay(this.selectedDate))
+          ? "1px solid red"
+          : null,
+      })}"
+    >
+      <button
+        ${spreadProps(buttonAttributes)}
+        @click="${() => this.handleSelectDate(dayDateValue)}"
+      >
+        ${day}
+      </button>
+    </td>`;
+  }
+
+  render() {
     const dayNumOfFirstDayInMonth = parseInt(
       formatDate(startOfMonth(this.currentMonth), "i"),
       10,
     );
 
-    let currentRow = 0;
-    const remainingRows: number[][] = [[]];
+    const daysRows: number[][] = this.getDayRowsToRender();
 
     const firstRowDaysNum = 7 - dayNumOfFirstDayInMonth;
 
-    let j = 0;
-    for (let i = firstRowDaysNum; i < daysInMonth; i++) {
-      if (j % 7 === 0) {
-        currentRow++;
-        remainingRows[currentRow] = [];
-      }
-
-      remainingRows[currentRow].push(i);
-      j++;
-    }
-
     return html`
-      <div>
+      <div
+        style="${styleMap({
+          border: "1px solid red",
+          position: "absolute",
+          top: 80,
+          left: 40,
+        })}"
+      >
         <div>
           <button @click="${this.goToPreviousMonth}"><</button>
           <button @click="${this.goToNextMonth}">></button>
@@ -73,13 +136,17 @@ export class LitCalendar extends LitElement {
               <td colspan="${dayNumOfFirstDayInMonth}">
                 ${formatDate(this.currentMonth, "MMM")}
               </td>
-              ${map(range(firstRowDaysNum), (i) => html`<td>${i + 1}</td>`)}
+              ${map(range(firstRowDaysNum), (day) => this.renderDay(day + 1))}
             </tr>
             ${map(
-              remainingRows,
+              daysRows,
               (row) => html`
                 <tr>
-                  ${map(row, (day) => html` <td>${day + 1}</td> `)}
+                  ${repeat(
+                    row,
+                    (day) => day,
+                    (day) => this.renderDay(day + 1),
+                  )}
                 </tr>
               `,
             )}
