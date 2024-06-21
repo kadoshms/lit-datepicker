@@ -1,12 +1,24 @@
-import { html, LitElement, nothing } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { css, html, LitElement, nothing, PropertyValues, render } from "lit";
+import { customElement, property, query, state } from "lit/decorators.js";
 import "./../calendar/calendar.component.js";
-import { formatDate } from "date-fns";
+import { formatDate, isValid, parse } from "date-fns";
 import { createRef, Ref, ref } from "lit/directives/ref.js";
 import { styleMap } from "lit/directives/style-map.js";
+import { computePosition } from "@floating-ui/dom";
 
 @customElement("lit-datepicker")
 class LitDatepicker extends LitElement {
+  static styles = css`
+    [popover] {
+      border: 1px solid blue;
+    }
+
+    [popover]:popover-open {
+      position: absolute;
+      inset: unset;
+    }
+  `;
+
   containerRef: Ref = createRef();
 
   @state()
@@ -18,20 +30,45 @@ class LitDatepicker extends LitElement {
   @property({ attribute: false })
   onDateChange: Function;
 
-  private toggleCalendar() {
-    this.isOpen = !this.isOpen;
+  @property()
+  placeholder = "Select a Date";
+
+  @property()
+  dateFormat = "dd/MM/yyyy";
+
+  popoverRef: Ref<HTMLElement> = createRef();
+
+  @query("input")
+  inputElement: HTMLInputElement;
+
+  calendar = createRef();
+
+  @state()
+  popoverPosition: { left: string; top: string };
+
+  private async toggleCalendar() {
+    const popoverElement = this.popoverRef.value;
+    if (popoverElement) {
+      popoverElement.togglePopover();
+      const position = await computePosition(
+        this.inputElement,
+        popoverElement,
+        {
+          placement: "bottom-start",
+        },
+      );
+
+      popoverElement.style.left = `${position.x}px`;
+      popoverElement.style.top = `${position.y}px`;
+    }
   }
 
-  connectedCallback() {
-    document.addEventListener("click", (event) => {
-      if (
-        this.containerRef.value &&
-        !event.composedPath().includes(this.containerRef.value)
-      ) {
-        this.isOpen = false;
-      }
-    });
-    super.connectedCallback();
+  handleInputChange(event: InputEvent) {
+    const value = (event.target as HTMLInputElement).value;
+    const parsedDate = parse(value, this.dateFormat, new Date());
+    if (isValid(parsedDate)) {
+      this.selectedDate = parsedDate;
+    }
   }
 
   render() {
@@ -44,17 +81,19 @@ class LitDatepicker extends LitElement {
       >
         <input
           @click="${this.toggleCalendar}"
+          .placeholder="${this.placeholder}"
+          @change="${this.handleInputChange}"
           type="text"
           .value="${this.selectedDate
-            ? formatDate(this.selectedDate, "dd/MM/yyyy")
+            ? formatDate(this.selectedDate, this.dateFormat)
             : ""}"
         />
-        ${this.isOpen
-          ? html`<lit-calendar
-              .onDateChange="${this.onDateChange}"
-              .selectedDate="${this.selectedDate}"
-            ></lit-calendar>`
-          : nothing}
+        <div popover ${ref(this.popoverRef)}>
+          <lit-calendar
+            .onDateChange="${this.onDateChange}"
+            .selectedDate="${this.selectedDate}"
+          ></lit-calendar>
+        </div>
       </div>
     `;
   }

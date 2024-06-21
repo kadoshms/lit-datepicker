@@ -1,5 +1,5 @@
 import { customElement, property, state } from "lit/decorators.js";
-import { html, LitElement } from "lit";
+import { html, LitElement, PropertyValues } from "lit";
 import { map } from "lit/directives/map.js";
 import { range } from "lit/directives/range.js";
 import {
@@ -17,6 +17,10 @@ import { repeat } from "lit/directives/repeat.js";
 import { styleMap } from "lit/directives/style-map.js";
 import { spreadProps } from "@open-wc/lit-helpers";
 
+const popoverContainer = Object.assign(document.createElement("div"), {
+  className: "lit-calendar-container",
+});
+
 @customElement("lit-calendar")
 export class LitCalendar extends LitElement {
   @property({ attribute: false })
@@ -28,6 +32,16 @@ export class LitCalendar extends LitElement {
   @state()
   currentMonth: Date = new Date();
 
+  @property()
+  isOpen: boolean = false;
+
+  connectedCallback() {
+    super.connectedCallback();
+
+    if (popoverContainer.parentElement === null) {
+      document.body.appendChild(popoverContainer);
+    }
+  }
   goToNextMonth() {
     this.currentMonth = add(this.currentMonth, { months: 1 });
   }
@@ -106,14 +120,7 @@ export class LitCalendar extends LitElement {
     const firstRowDaysNum = 7 - dayNumOfFirstDayInMonth;
 
     return html`
-      <div
-        style="${styleMap({
-          border: "1px solid red",
-          position: "absolute",
-          top: 80,
-          left: 40,
-        })}"
-      >
+      <div style="border: 1px solid red">
         <div>
           <button @click="${this.goToPreviousMonth}"><</button>
           <button @click="${this.goToNextMonth}">></button>
